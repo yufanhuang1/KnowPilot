@@ -10,14 +10,25 @@ from langchain.agents.conversational.output_parser import ConvoOutputParser
 from models.dashscope_model import get_llm
 from agent.memory import get_memory
 from tools.tools import get_tools
+from langchain.tools import Tool
 
 MAX_RETRIES = 3
 
 class CustomAgentExecutor:
-    def __init__(self):
+    def __init__(self,rag_chain=None):
         self.llm = get_llm()
-        self.tools = get_tools()
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+        base_tools = get_tools()
+        # 如果提供了rag_chain，创建RAG工具并添加到工具列表,动态创建rag工具
+        self.tools = base_tools
+        if rag_chain is not None:
+            rag_tool = Tool(
+                name="知识检索",
+                func=lambda query: str(rag_chain.run(query)),
+                description="当需要回答需要专业知识的开放性问题时使用此工具"
+            )
+            self.tools.append(rag_tool)
 
         # 自定义中文 Prompt
         tool_names = ", ".join([tool.name for tool in self.tools])

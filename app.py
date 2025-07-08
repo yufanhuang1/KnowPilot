@@ -1,12 +1,39 @@
 import streamlit as st
-#from agent.agent_chain import create_agent
+from langchain.chains.retrieval_qa.base import RetrievalQA
 from agent.agent_chain import CustomAgentExecutor
+from agent.rag_qa import list_knowledge_bases, ingest_document, delete_knowledge_base, load_knowledge_base
+from models.dashscope_model import get_llm
 
 st.set_page_config(page_title="Agent Chatbot", layout="wide")
 st.title("🤖 chatbot 🤖")
 
+# --- 上传文档 ---
+st.sidebar.header("📤 上传文档")
+uploaded_file = st.sidebar.file_uploader("选择文档", type=["txt", "pdf", "md"])
+kb_name = st.sidebar.text_input("知识库名称", value="default")
+
+if uploaded_file and st.sidebar.button("上传并入库"):
+    ingest_document(uploaded_file, kb_name)
+    st.sidebar.success("文档已入库！")
+
+# --- 删除知识库 ---
+#st.sidebar.header("🗑 删除知识库")
+#kb_to_delete = st.sidebar.selectbox("选择要删除的知识库", list_knowledge_bases())
+#if st.sidebar.button("删除知识库"):
+#    delete_knowledge_base(kb_to_delete)
+#    st.sidebar.warning(f"已删除知识库 {kb_to_delete}")
+
+# --- 当前选择的知识库 ---
+st.sidebar.header("📂 当前知识库")
+current_kb = st.sidebar.selectbox("选择知识库用于问答", list_knowledge_bases())
+
 if "agent" not in st.session_state:
-    #st.session_state.agent = create_agent()
+    rag_chain = RetrievalQA.from_chain_type(
+        llm=get_llm(),
+        retriever=load_knowledge_base(current_kb),
+        return_source_documents=False
+    )
+    st.session_state.agent = CustomAgentExecutor(rag_chain=rag_chain)
     st.session_state.agent = CustomAgentExecutor()
 
 if "chat_history" not in st.session_state:
