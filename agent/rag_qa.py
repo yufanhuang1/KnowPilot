@@ -5,7 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 import psutil
 
-from models.dashscope_model import get_embeddings,get_llm
+from models.dashscope_model import get_embeddings
 import os
 
 BASE_DOC_DIR = "./data/docs"

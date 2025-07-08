@@ -1,11 +1,19 @@
 import streamlit as st
 from langchain.chains.retrieval_qa.base import RetrievalQA
 from agent.agent_chain import CustomAgentExecutor
+from agent.model_manager import get_available_models, get_llm
 from agent.rag_qa import list_knowledge_bases, ingest_document, delete_knowledge_base, load_knowledge_base
-from models.dashscope_model import get_llm
+
 
 st.set_page_config(page_title="Agent Chatbot", layout="wide")
 st.title("🤖 chatbot 🤖")
+
+st.sidebar.header("🧠 模型选择")
+model_list = get_available_models()
+selected_model = st.sidebar.selectbox("选择模型", model_list)
+
+# 用选择的模型初始化 LLM
+llm = get_llm(selected_model)
 
 # --- 上传文档 ---
 st.sidebar.header("📤 上传文档")
@@ -27,14 +35,15 @@ if uploaded_file and st.sidebar.button("上传并入库"):
 st.sidebar.header("📂 当前知识库")
 current_kb = st.sidebar.selectbox("选择知识库用于问答", list_knowledge_bases())
 
-if "agent" not in st.session_state:
+if "agent" not in st.session_state or st.session_state.selected_model != selected_model:
+
     rag_chain = RetrievalQA.from_chain_type(
-        llm=get_llm(),
+        llm=get_llm(selected_model),
         retriever=load_knowledge_base(current_kb),
         return_source_documents=False
     )
-    st.session_state.agent = CustomAgentExecutor(rag_chain=rag_chain)
-    st.session_state.agent = CustomAgentExecutor()
+    st.session_state.selected_model = selected_model
+    st.session_state.agent = CustomAgentExecutor(rag_chain=rag_chain,llm=llm)
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []

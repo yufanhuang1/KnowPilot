@@ -6,17 +6,14 @@ from langchain.schema.messages import SystemMessage
 from langchain_core.agents import AgentFinish
 from langchain_core.exceptions import OutputParserException
 from langchain.agents.conversational.output_parser import ConvoOutputParser
-
-from models.dashscope_model import get_llm
 from agent.memory import get_memory
+from agent.model_manager import get_llm
 from tools.tools import get_tools
 from langchain.tools import Tool
 
-MAX_RETRIES = 3
-
 class CustomAgentExecutor:
-    def __init__(self,rag_chain=None):
-        self.llm = get_llm()
+    def __init__(self,rag_chain=None,llm=None):
+        self.llm = llm or get_llm("local")  # 默认模型
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
         base_tools = get_tools()
@@ -60,7 +57,26 @@ class CustomAgentExecutor:
             prompt=prompt,
         )
         self.output_parser = ConvoOutputParser()
+        self.agent_executor = AgentExecutor.from_agent_and_tools(
+            agent=self.agent,
+            tools=self.tools,
+            memory=self.memory,
+            handle_parsing_errors=True,
+            verbose=True
+        )
 
+    def run(self, input_text: str, max_retries=3) -> str:
+        for attempt in range(max_retries):
+            try:
+                return self.agent_executor.invoke(input_text)
+            except OutputParserException as e:
+                print(f"[WARN] 第 {attempt + 1} 次 LLM 输出解析失败：{e}")
+                if attempt == max_retries - 1:
+                    return "❌ 抱歉，我无法理解模型的输出格式。"
+        return "⚠️ 未知错误"
+
+
+'''
     def run(self, input_text: str) -> str:
         intermediate_steps = []
         user_input = {"input": input_text, "chat_history": []}
@@ -89,7 +105,7 @@ class CustomAgentExecutor:
                 continue  # retry
 
         return "⚠️ 未知错误"
-
+'''
 
 
 '''
