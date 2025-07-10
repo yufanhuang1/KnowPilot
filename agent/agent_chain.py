@@ -13,11 +13,10 @@ from langchain.tools import Tool
 
 class CustomAgentExecutor:
     def __init__(self,rag_chain=None,llm=None):
-        self.llm = llm or get_llm("local")  # 默认模型
+        self.llm = llm or get_llm("deepseek")  # 默认模型
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
         base_tools = get_tools()
-        # 如果提供了rag_chain，创建RAG工具并添加到工具列表,动态创建rag工具
         self.tools = base_tools
         if rag_chain is not None:
             rag_tool = Tool(

@@ -54,8 +54,10 @@ if user_input:
     with st.spinner("🤖 正在思考..."):
         response = st.session_state.agent.run( user_input)
 
+    # 如果返回的是 dict，取出 output 字段；否则直接用原样
+    final_output = response.get("output") if isinstance(response, dict) else response
     st.session_state.chat_history.append(("user", user_input))
-    st.session_state.chat_history.append(("ai", response))
+    st.session_state.chat_history.append(("ai", final_output))
 
 for role, msg in st.session_state.chat_history:
     with st.chat_message("🤖" if role == "ai" else "🧑"):
