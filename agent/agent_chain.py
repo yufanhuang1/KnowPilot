@@ -1,5 +1,6 @@
 from langchain.agents import AgentExecutor, ConversationalChatAgent, initialize_agent, AgentType
 from langchain.agents.agent import AgentOutputParser
+from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema.messages import SystemMessage
@@ -8,23 +9,21 @@ from langchain_core.exceptions import OutputParserException
 from langchain.agents.conversational.output_parser import ConvoOutputParser
 from agent.memory import get_memory
 from agent.model_manager import get_llm
+from agent.rag_qa import list_knowledge_bases, load_knowledge_base
 from tools.tools import get_tools
 from langchain.tools import Tool
 
 class CustomAgentExecutor:
-    def __init__(self,rag_chain=None,llm=None):
+    def __init__(self,llm=None):
         self.llm = llm or get_llm("deepseek")  # 默认模型
         self.memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
         base_tools = get_tools()
         self.tools = base_tools
-        if rag_chain is not None:
-            rag_tool = Tool(
-                name="知识检索",
-                func=lambda query: str(rag_chain.run(query)),
-                description="当需要回答需要专业知识的开放性问题时使用此工具"
-            )
-            self.tools.append(rag_tool)
+
+        # 添加所有已有知识库为独立工具
+        for kb in list_knowledge_bases():
+            self.tools.append(self._create_rag_tool(kb))
 
         # 自定义中文 Prompt
         tool_names = ", ".join([tool.name for tool in self.tools])
@@ -42,7 +41,7 @@ class CustomAgentExecutor:
         思考: 我知道了
         最终答案: 答案文本
         
-         只能使用以上格式，否则会报错。"""
+         """
 
         prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content=system_prompt),
@@ -64,100 +63,26 @@ class CustomAgentExecutor:
             verbose=True
         )
 
+    def _create_rag_tool(self, kb_name):
+        retriever = load_knowledge_base(kb_name)
+        qa_chain = RetrievalQA.from_chain_type(llm=self.llm, retriever=retriever)
+        return Tool(
+            name=f"知识库：{kb_name}",
+            func=lambda q: qa_chain.run(q),
+            description=f"从知识库 {kb_name} 中检索答案。适用于相关文档的问题。"
+        )
+
     def run(self, input_text: str, max_retries=3) -> str:
         for attempt in range(max_retries):
             try:
-                return self.agent_executor.invoke(input_text)
+                result = self.agent_executor.invoke({"input": input_text})
+                # result 是一个 dict，可能包含 intermediate_steps
+                steps = result.get("intermediate_steps", [])
+                used_tools = [action.tool for action, _ in steps]
+                print(f"[INFO] 本次调用使用的工具：{used_tools}")
+                return result  # 保留结构以便前端处理
             except OutputParserException as e:
                 print(f"[WARN] 第 {attempt + 1} 次 LLM 输出解析失败：{e}")
                 if attempt == max_retries - 1:
                     return "❌ 抱歉，我无法理解模型的输出格式。"
         return "⚠️ 未知错误"
-
-
-'''
-    def run(self, input_text: str) -> str:
-        intermediate_steps = []
-        user_input = {"input": input_text, "chat_history": []}
-
-        for attempt in range(MAX_RETRIES):
-            try:
-                # 1. 生成 Agent 输出
-                agent_output = self.agent.plan(intermediate_steps, **user_input)
-
-                # 2. AgentFinish 表示已经回答完毕
-                if isinstance(agent_output, AgentFinish):
-                    return agent_output.return_values["output"]
-
-                # 3. AgentAction -> 调用工具
-                tool = next((t for t in self.tools if t.name == agent_output.tool), None)
-                if not tool:
-                    raise ValueError(f"未知工具: {agent_output.tool}")
-                observation = tool.run(agent_output.tool_input)
-
-                intermediate_steps.append((agent_output, observation))
-
-            except OutputParserException as e:
-                print(f"[WARN] 第 {attempt + 1} 次解析失败，错误：{str(e)}")
-                if attempt >= MAX_RETRIES - 1:
-                    return "❌ 很抱歉，我无法理解模型的输出格式。"
-                continue  # retry
-
-        return "⚠️ 未知错误"
-'''
-
-
-'''
-def create_agent():
-    llm = get_llm()
-    memory = get_memory()
-    tools = get_tools()
-
-    # 获取工具名称列表
-    tool_names = ", ".join([tool.name for tool in tools])
-
-    system_prompt = f"""You are a helpful AI assistant. You have access to the following tools:
-
-    {tool_names}
-
-    Use the following format:
-
-    Thought: What do you want to do
-    Action: The action to take, must be one of [{tool_names}]
-    Action Input: The input to the action
-
-    ... (this can repeat several times)
-
-    When you have the final answer, use:
-
-    Thought: I have the final answer
-    Final Answer: [your answer]
-    """
-
-    # 构造 prompt
-    prompt = ChatPromptTemplate.from_messages([
-        SystemMessage(content=system_prompt),
-        MessagesPlaceholder(variable_name="chat_history"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
-
-    # 构造 Agent
-    agent = ConversationalChatAgent.from_llm_and_tools(
-        llm=llm,
-        tools=tools,
-        prompt=prompt,
-        handle_parsing_errors=True,  # 处理解析错误
-        verbose=True  # 输出中间步骤
-    )
-
-    # Agent 执行器
-    agent_executor = AgentExecutor.from_agent_and_tools(
-        agent=agent,
-        tools=tools,
-        memory=memory,
-        handle_parsing_errors=True,
-        verbose=True
-    )
-
-    return agent_executor
-'''

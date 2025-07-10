@@ -22,7 +22,7 @@ kb_name = st.sidebar.text_input("知识库名称", value="default")
 
 if uploaded_file and st.sidebar.button("上传并入库"):
     ingest_document(uploaded_file, kb_name)
-    st.sidebar.success("文档已入库！")
+    st.sidebar.success("文档已入库！请刷新页面以更新知识库工具")
 
 # --- 删除知识库 ---
 #st.sidebar.header("🗑 删除知识库")
@@ -31,19 +31,14 @@ if uploaded_file and st.sidebar.button("上传并入库"):
 #    delete_knowledge_base(kb_to_delete)
 #    st.sidebar.warning(f"已删除知识库 {kb_to_delete}")
 
-# --- 当前选择的知识库 ---
+# --- 展示当前知识库 ---
 st.sidebar.header("📂 当前知识库")
-current_kb = st.sidebar.selectbox("选择知识库用于问答", list_knowledge_bases())
+st.sidebar.write(", ".join(list_knowledge_bases()) or "暂无知识库")
 
 if "agent" not in st.session_state or st.session_state.selected_model != selected_model:
 
-    rag_chain = RetrievalQA.from_chain_type(
-        llm=get_llm(selected_model),
-        retriever=load_knowledge_base(current_kb),
-        return_source_documents=False
-    )
     st.session_state.selected_model = selected_model
-    st.session_state.agent = CustomAgentExecutor(rag_chain=rag_chain,llm=llm)
+    st.session_state.agent = CustomAgentExecutor(llm=llm)
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
