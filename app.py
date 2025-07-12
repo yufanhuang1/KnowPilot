@@ -1,8 +1,9 @@
+import os
+
 import streamlit as st
-from langchain.chains.retrieval_qa.base import RetrievalQA
 from agent.agent_chain import CustomAgentExecutor
 from agent.model_manager import get_available_models, get_llm
-from agent.rag_qa import list_knowledge_bases, ingest_document, delete_knowledge_base, load_knowledge_base
+from agent.rag_qa import list_knowledge_bases, ingest_document
 
 
 st.set_page_config(page_title="Agent Chatbot", layout="wide")
@@ -15,13 +16,21 @@ selected_model = st.sidebar.selectbox("选择模型", model_list)
 # 用选择的模型初始化 LLM
 llm = get_llm(selected_model)
 
+
+def save_uploaded_file(uploaded_file, save_dir="docs"):
+    os.makedirs(save_dir, exist_ok=True)
+    file_path = os.path.join(save_dir, uploaded_file.name)
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return file_path
 # --- 上传文档 ---
 st.sidebar.header("📤 上传文档")
 uploaded_file = st.sidebar.file_uploader("选择文档", type=["txt", "pdf", "md"])
 kb_name = st.sidebar.text_input("知识库名称", value="default")
 
 if uploaded_file and st.sidebar.button("上传并入库"):
-    ingest_document(uploaded_file, kb_name)
+    file_path = save_uploaded_file(uploaded_file)
+    ingest_document(file_path, kb_name)
     st.sidebar.success("文档已入库！请刷新页面以更新知识库工具")
 
 # --- 删除知识库 ---
@@ -58,8 +67,5 @@ for role, msg in st.session_state.chat_history:
     with st.chat_message("🤖" if role == "ai" else "🧑"):
         st.markdown(msg)
 
-
-
 #streamlit run app.py
 #localhost:8501
-

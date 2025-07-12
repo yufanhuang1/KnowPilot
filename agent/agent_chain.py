@@ -7,9 +7,8 @@ from langchain.schema.messages import SystemMessage
 from langchain_core.agents import AgentFinish
 from langchain_core.exceptions import OutputParserException
 from langchain.agents.conversational.output_parser import ConvoOutputParser
-from agent.memory import get_memory
 from agent.model_manager import get_llm
-from agent.rag_qa import list_knowledge_bases, load_knowledge_base
+from agent.rag_qa import list_knowledge_bases, load_retriever
 from tools.tools import get_tools
 from langchain.tools import Tool
 
@@ -64,7 +63,7 @@ class CustomAgentExecutor:
         )
 
     def _create_rag_tool(self, kb_name):
-        retriever = load_knowledge_base(kb_name)
+        retriever = load_retriever(kb_name)
         qa_chain = RetrievalQA.from_chain_type(llm=self.llm, retriever=retriever)
         return Tool(
             name=f"知识库：{kb_name}",
@@ -77,9 +76,9 @@ class CustomAgentExecutor:
             try:
                 result = self.agent_executor.invoke({"input": input_text})
                 # result 是一个 dict，可能包含 intermediate_steps
-                steps = result.get("intermediate_steps", [])
-                used_tools = [action.tool for action, _ in steps]
-                print(f"[INFO] 本次调用使用的工具：{used_tools}")
+                #steps = result.get("intermediate_steps", [])
+                #used_tools = [action.tool for action, _ in steps]
+                #print(f"[INFO] 本次调用使用的工具：{used_tools}")
                 return result  # 保留结构以便前端处理
             except OutputParserException as e:
                 print(f"[WARN] 第 {attempt + 1} 次 LLM 输出解析失败：{e}")

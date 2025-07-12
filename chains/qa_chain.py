@@ -1,5 +1,7 @@
 # === chains/qa_chain.py ===
 from langchain.chains import RetrievalQA
+from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
+
 import models.dashscope_model as model
 from utils.loader import load_and_split
 
