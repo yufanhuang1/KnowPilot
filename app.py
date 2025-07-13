@@ -6,8 +6,8 @@ from agent.model_manager import get_available_models, get_llm
 from agent.rag_qa import list_knowledge_bases, ingest_document
 
 
-st.set_page_config(page_title="Agent Chatbot", layout="wide")
-st.title("🤖 chatbot 🤖")
+st.set_page_config(page_title="KnowPilot", layout="wide")
+st.title("🤖 KnowPilot 🤖")
 
 st.sidebar.header("🧠 模型选择")
 model_list = get_available_models()
